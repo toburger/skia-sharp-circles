@@ -148,7 +148,7 @@ let main args =
             <@ Output @>,
             checkFileEnding ".png"
         )
-        |> Option.defaultValue "./circles.json"
+        |> Option.defaultValue "./circles.png"
 
     /// Array of circles with a random color.
     /// Imports the circles from a JSON file.

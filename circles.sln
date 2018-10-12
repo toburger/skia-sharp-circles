@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28010.2041
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "skia", "skia.fsproj", "{9C01CB03-3473-4D0B-A077-D08FBA2FF785}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "circles", "circles.fsproj", "{9C01CB03-3473-4D0B-A077-D08FBA2FF785}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
