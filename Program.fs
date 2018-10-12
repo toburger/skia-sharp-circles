@@ -3,7 +3,9 @@ open System.Threading.Tasks
 open SkiaSharp
 open Newtonsoft.Json
 
-type Circle = Circle of x: int * y: int * radius: int
+let radius = 80
+
+type Circle = Circle of x: int * y: int
 
 type Input = { id: string; x: string; y: string }
 
@@ -11,8 +13,6 @@ let rndColor =
     let rnd = Random()
     let next () = byte (rnd.Next(127, 256))
     fun () -> SKColor(next (), next (), next (), 255uy)
-
-let radius = 80
 
 let distance (mmx: int, mmy: int) (ox: int, oy: int) =
     Math.Sqrt(float ((mmx-ox)*(mmx-ox)+(mmy-oy)*(mmy-oy)))
@@ -51,7 +51,7 @@ let getColorMap (width, height) ccircles: SKBitmap =
     use surface = SKSurface.Create(info)
     let canvas = surface.Canvas
     canvas.Clear(SKColors.Black)
-    for Circle (x, y, radius), _ in ccircles do
+    for Circle (x, y), _ in ccircles do
         let color = SKColors.White
         use paint = new SKPaint(Color = color, FilterQuality = SKFilterQuality.High)
         canvas.DrawCircle(SKPoint(float32 x, float32 y), float32 radius, paint)
@@ -67,18 +67,18 @@ let main _ =
             let color = rndColor ()
             let x = int i.x * 8
             let y = int i.y * 8
-            Circle(x, y, radius), color)
+            Circle(x, y), color)
 
     use original = SKBitmap.Decode("./burgstall.jpg")
 
     printfn "Get overlay pixels"
-    let overlay =
+    use overlay =
         getColorMap (original.Width, original.Height) ccircles
 
     printfn "Set recolored pixels"
     let points =
         ccircles
-        |> Array.Parallel.map (fun (Circle (x, y, _), color) ->
+        |> Array.map (fun (Circle (x, y), color) ->
             (int x, int y), color)
     let calcDistance point =
         points
