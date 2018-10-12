@@ -1,4 +1,5 @@
 ﻿open System
+open System.Threading.Tasks
 open SkiaSharp
 open Newtonsoft.Json
 
@@ -13,26 +14,8 @@ let rndColor =
 
 let radius = 80
 
-let inline (|Point|) (p: SKPoint) =
-    p.X, p.Y
-
 let distance (mmx: int, mmy: int) (ox: int, oy: int) =
     Math.Sqrt(float ((mmx-ox)*(mmx-ox)+(mmy-oy)*(mmy-oy)))
-
-let pixels (bitmap: SKBitmap) = [|
-    for x = 0 to bitmap.Width - 1 do
-    for y = 0 to bitmap.Height - 1 do
-        let color = bitmap.GetPixel(x, y)
-        yield x, y, color
-|]
-
-let grayscalePixels (bitmap: SKBitmap) = [|
-    for x = 0 to bitmap.Width - 1 do
-    for y = 0 to bitmap.Height - 1 do
-        let color = bitmap.GetPixel(x, y)
-        let grayscale = byte ((int color.Red + int color.Green + int color.Blue) / 3)
-        yield grayscale
-|]
 
 let blend (a: SKColor) (b: SKColor) =
     let aA, rA, gA, bA = int a.Alpha, int a.Red, int a.Green, int a.Blue
@@ -45,19 +28,25 @@ let blend (a: SKColor) (b: SKColor) =
 
 let recolorPixels
         calcDistance
-        (grayscaledPixels: byte [])
-        (originalPixels: (int * int * SKColor) []): (int * int * SKColor) [] =
-    originalPixels
-    |> Array.Parallel.mapi (fun i (x, y, color) ->
-        let grayscale = grayscaledPixels.[i]
+        (overlay: SKBitmap)
+        (original: SKBitmap): unit =
+    let inline updatePixel x y =
+        let color = original.GetPixel(x, y)
+        let grayscale = overlay.GetPixel(x, y)
+        let grayscale =
+           byte ((int grayscale.Red + int grayscale.Green + int grayscale.Blue) / 3)
         if grayscale > 0uy then
             let _, (ncolor: SKColor) = calcDistance (x, y)
-            let alpha = byte (int grayscale / 2)
+            let alpha = grayscale / 2uy
             let ncolor = ncolor.WithAlpha(alpha)
-            x, y, blend ncolor color
-        else x, y, color)
+            original.SetPixel(x, y, blend ncolor color)
+        else ()
+    Parallel.For(0, original.Width, (fun x ->
+        for y = 0 to original.Height - 1 do
+            updatePixel x y))
+    |> ignore
 
-let getColorMap (width, height) ccircles =
+let getColorMap (width, height) ccircles: SKBitmap =
     let info = SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
     let canvas = surface.Canvas
@@ -67,8 +56,7 @@ let getColorMap (width, height) ccircles =
         use paint = new SKPaint(Color = color, FilterQuality = SKFilterQuality.High)
         canvas.DrawCircle(SKPoint(float32 x, float32 y), float32 radius, paint)
     use image = surface.Snapshot()
-    use bitmap = SKBitmap.FromImage(image)
-    grayscalePixels bitmap
+    SKBitmap.FromImage(image)
 
 [<EntryPoint>]
 let main _ =
@@ -81,16 +69,13 @@ let main _ =
             let y = int i.y * 8
             Circle(x, y, radius), color)
 
-    use bitmap = SKBitmap.Decode("./burgstall.jpg")
+    use original = SKBitmap.Decode("./burgstall.jpg")
 
-    printfn "Get pixels"
-    let originalPixels = pixels bitmap
+    printfn "Get overlay pixels"
+    let overlay =
+        getColorMap (original.Width, original.Height) ccircles
 
-    printfn "Get grayscaled pixels"
-    let colorMap =
-        getColorMap (bitmap.Width, bitmap.Height) ccircles
-
-    printfn "Get recolored pixels"
+    printfn "Set recolored pixels"
     let points =
         ccircles
         |> Array.Parallel.map (fun (Circle (x, y, _), color) ->
@@ -98,16 +83,10 @@ let main _ =
     let calcDistance point =
         points
         |> Array.minBy (fst >> distance point)
-    let recoloredPixels =
-        originalPixels
-        |> recolorPixels calcDistance colorMap
+    original
+    |> recolorPixels calcDistance overlay
 
-    printfn "Recolor bitmap"
-    recoloredPixels
-    |> Array.iter (fun (x, y, color) ->
-        bitmap.SetPixel(x, y, color))
-
-    use image = SKImage.FromBitmap(bitmap)
+    use image = SKImage.FromBitmap(original)
 
     use data = image.Encode(SKEncodedImageFormat.Png, 100)
     let path = IO.Path.GetFullPath("./circles.png")
