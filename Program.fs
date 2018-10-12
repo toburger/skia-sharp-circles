@@ -125,7 +125,7 @@ let main args =
     let checkFileEnding ext (path: string) =
         if IO.Path.GetExtension(path) <> ext then
             failwithf
-                "Invalid file extension. Expeced a %s file."
+                "Invalid file extension. Expected a %s file."
                 (ext.[1..].ToUpper())
         else
             path
