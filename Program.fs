@@ -8,8 +8,6 @@ let radius = 80
 /// Scale factor for all circles
 let scale = 8
 
-type Circle = Circle of x: int * y: int
-
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
 
@@ -77,7 +75,7 @@ let getColorMap (width, height) ccircles: SKBitmap =
     use surface = SKSurface.Create(info)
     let canvas = surface.Canvas
     canvas.Clear(SKColors.Black)
-    for Circle (x, y), _ in ccircles do
+    for (x, y), _ in ccircles do
         let color = SKColors.White
         use paint =
             new SKPaint(
@@ -104,7 +102,7 @@ let main _ =
             let color = rndColor ()
             let x = int i.x * scale
             let y = int i.y * scale
-            Circle(x, y), color)
+            (x, y), color)
 
     use original = SKBitmap.Decode("./burgstall.jpg")
 
@@ -117,13 +115,9 @@ let main _ =
     printfn "Set recolored pixels"
     /// Convert array of circles and colors to an array
     /// of points and colors for convenience.
-    let points =
-        ccircles
-        |> Array.map (fun (Circle (x, y), color) ->
-            (x, y), color)
     /// Function used to find the closest point and use its color.
     let getClosestColor point =
-        points
+        ccircles
         |> Array.minBy (fst >> distance point)
         |> snd
 
