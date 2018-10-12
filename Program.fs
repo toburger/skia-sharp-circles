@@ -5,6 +5,9 @@ open SkiaSharp
 /// The radius used for all circles
 let radius = 80
 
+/// Scale factor for all circles
+let scale = 8
+
 type Circle = Circle of x: int * y: int
 
 /// Used to read input from JSON.
@@ -99,8 +102,8 @@ let main _ =
         |> Newtonsoft.Json.JsonConvert.DeserializeObject<Input array>
         |> Array.map (fun i ->
             let color = rndColor ()
-            let x = int i.x * 8
-            let y = int i.y * 8
+            let x = int i.x * scale
+            let y = int i.y * scale
             Circle(x, y), color)
 
     use original = SKBitmap.Decode("./burgstall.jpg")
