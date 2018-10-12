@@ -6,6 +6,8 @@ open Argu
 type Arguments =
     | Radius of int
     | Scale of int
+    | Alpha of byte
+    | OriginalImage of string
     | Input of string
     | Output of string
     interface IArgParserTemplate with
@@ -13,6 +15,8 @@ type Arguments =
             match self with
             | Radius _ -> "The radius used for all circles."
             | Scale _ -> "Scale factor for x and y coordinates."
+            | Alpha _ -> "The alfa factor to apply to the overlay circles."
+            | OriginalImage _ -> "The original image to overlay."
             | Input _ -> "The input JSON file."
             | Output _ -> "The generated PNG image."
 
@@ -50,6 +54,7 @@ let blend (a: SKColor) (b: SKColor) =
 /// <param name="getClosesColor">The original bitmap to modify</param>
 let recolorPixels
         getClosestColor
+        alpha
         (overlay: SKBitmap)
         (original: SKBitmap): unit =
     let inline updatePixel x y =
@@ -66,7 +71,7 @@ let recolorPixels
             /// Find the closest color.
             let (ncolor: SKColor) = getClosestColor (x, y)
             /// Make it half transparent.
-            let alpha = grayscale / 2uy
+            let alpha = byte ((int grayscale * int alpha) / 255)
             /// Apply alpha to the closest color.
             let ncolor = ncolor.WithAlpha(alpha)
             original.SetPixel(x, y, blend ncolor color)
@@ -122,6 +127,10 @@ let main args =
         result.TryGetResult <@ Scale @>
         |> Option.defaultValue 8
 
+    let alpha =
+        result.TryGetResult <@ Alpha @>
+        |> Option.defaultValue 127uy
+
     let checkFileEnding ext (path: string) =
         if IO.Path.GetExtension(path) <> ext then
             failwithf
@@ -135,6 +144,10 @@ let main args =
             failwithf "File not found: %s" path
         else
             path
+
+    let originalImage =
+        result.TryGetResult <@ OriginalImage @>
+        |> Option.defaultValue "./burgstall.jpg"
 
     let input =
         result.TryPostProcessResult(
@@ -161,7 +174,7 @@ let main args =
             let y = int i.y * scale
             (x, y), color)
 
-    use original = SKBitmap.Decode("./burgstall.jpg")
+    use original = SKBitmap.Decode(originalImage)
 
     printfn "Get overlay pixels"
     use overlay =
@@ -182,6 +195,7 @@ let main args =
     /// Rewrite pixels of the original bitmap.
     recolorPixels
         getClosestColor
+        alpha
         overlay
         original
 
