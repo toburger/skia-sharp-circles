@@ -27,16 +27,19 @@ let blend (a: SKColor) (b: SKColor) =
     SKColor(byte rOut, byte gOut, byte bOut, byte aOut)
 
 let recolorPixels
-        calcDistance
+        getClosestColor
         (overlay: SKBitmap)
         (original: SKBitmap): unit =
     let inline updatePixel x y =
         let color = original.GetPixel(x, y)
         let grayscale = overlay.GetPixel(x, y)
         let grayscale =
-           byte ((int grayscale.Red + int grayscale.Green + int grayscale.Blue) / 3)
+           byte
+            ((int grayscale.Red +
+              int grayscale.Green +
+              int grayscale.Blue) / 3)
         if grayscale > 0uy then
-            let _, (ncolor: SKColor) = calcDistance (x, y)
+            let (ncolor: SKColor) = getClosestColor (x, y)
             let alpha = grayscale / 2uy
             let ncolor = ncolor.WithAlpha(alpha)
             original.SetPixel(x, y, blend ncolor color)
@@ -53,8 +56,17 @@ let getColorMap (width, height) ccircles: SKBitmap =
     canvas.Clear(SKColors.Black)
     for Circle (x, y), _ in ccircles do
         let color = SKColors.White
-        use paint = new SKPaint(Color = color, FilterQuality = SKFilterQuality.High)
-        canvas.DrawCircle(SKPoint(float32 x, float32 y), float32 radius, paint)
+        use paint =
+            new SKPaint(
+                IsAntialias = true,
+                Color = color,
+                FilterQuality = SKFilterQuality.High
+            )
+        canvas.DrawCircle(
+            SKPoint(float32 x, float32 y),
+            float32 radius,
+            paint
+        )
     use image = surface.Snapshot()
     SKBitmap.FromImage(image)
 
@@ -80,11 +92,12 @@ let main _ =
         ccircles
         |> Array.map (fun (Circle (x, y), color) ->
             (int x, int y), color)
-    let calcDistance point =
+    let getClosestColor point =
         points
         |> Array.minBy (fst >> distance point)
+        |> snd
     original
-    |> recolorPixels calcDistance overlay
+    |> recolorPixels getClosestColor overlay
 
     use image = SKImage.FromBitmap(original)
 
