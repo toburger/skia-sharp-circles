@@ -13,17 +13,17 @@ let rndColor =
 
 let radius = 80.f
 
-let inline (|Point|) (p: SKPoint) =
-    p.X, p.Y
-
-let distance (mmx:int, mmy:int) (ox:int, oy:int) =
+//let distance (mmx:int, mmy:int) (ox:int, oy:int) =
+let distance (point1: SKPoint) (point2: SKPoint) =
+    let mmx, mmy = point1.X, point1.Y
+    let ox, oy = point2.X, point2.Y
     Math.Sqrt(float ((mmx-ox)*(mmx-ox)+(mmy-oy)*(mmy-oy)))
 
 let pixels (bitmap: SKBitmap) = [|
     for x = 0 to bitmap.Width - 1 do
     for y = 0 to bitmap.Height - 1 do
         let color = bitmap.GetPixel(x, y)
-        yield x, y, color
+        yield SKPoint(float32 x, float32 y), color
 |]
 
 let grayscalePixels (bitmap: SKBitmap) = [|
@@ -46,16 +46,16 @@ let blend (a: SKColor) (b: SKColor) =
 let recolorPixels
         calcDistance
         (grayscaledPixels: byte [])
-        (originalPixels: (int * int * SKColor) []): (int * int * SKColor) [] =
+        (originalPixels: (SKPoint * SKColor) []): (SKPoint * SKColor) [] =
     originalPixels
-    |> Array.Parallel.mapi (fun i (x, y, color) ->
+    |> Array.Parallel.mapi (fun i (point, color) ->
         let grayscale = grayscaledPixels.[i]
         if grayscale > 0uy then
-            let _, (ncolor: SKColor) = calcDistance (x, y)
+            let _, (ncolor: SKColor) = calcDistance point
             let alpha = byte (int grayscale / 2)
             let ncolor = ncolor.WithAlpha(alpha)
-            x, y, blend ncolor color
-        else x, y, color)
+            point, blend ncolor color
+        else point, color)
 
 let getColorMap (width, height) ccircles =
     let info = SKImageInfo(width, height)
@@ -93,7 +93,7 @@ let main _ =
     printfn "Get recolored pixels"
     let points =
         ccircles
-        |> Array.Parallel.map (fun (Circle (Point (x, y), _), color) -> (int x, int y), color)
+        |> Array.Parallel.map (fun (Circle (point, _), color) -> point, color)
     let calcDistance point =
         points
         |> Array.minBy (fst >> distance point)
@@ -103,8 +103,8 @@ let main _ =
 
     printfn "Recolor bitmap"
     recoloredPixels
-    |> Array.iter (fun (x, y, color) ->
-        bitmap.SetPixel(x, y, color))
+    |> Array.iter (fun (point, color) ->
+        bitmap.SetPixel(int point.X, int point.Y, color))
 
     use image = SKImage.FromBitmap(bitmap)
 
