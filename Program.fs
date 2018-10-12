@@ -2,7 +2,7 @@
 open SkiaSharp
 open Newtonsoft.Json
 
-type Circle = Circle of SKPoint * radius: float32
+type Circle = Circle of x: int * y: int * radius: int
 
 type Input = { id: string; x: string; y: string }
 
@@ -11,12 +11,12 @@ let rndColor =
     let next () = byte (rnd.Next(127, 256))
     fun () -> SKColor(next (), next (), next (), 255uy)
 
-let radius = 80.f
+let radius = 80
 
 let inline (|Point|) (p: SKPoint) =
     p.X, p.Y
 
-let distance (mmx:int, mmy:int) (ox:int, oy:int) =
+let distance (mmx: int, mmy: int) (ox: int, oy: int) =
     Math.Sqrt(float ((mmx-ox)*(mmx-ox)+(mmy-oy)*(mmy-oy)))
 
 let pixels (bitmap: SKBitmap) = [|
@@ -62,10 +62,10 @@ let getColorMap (width, height) ccircles =
     use surface = SKSurface.Create(info)
     let canvas = surface.Canvas
     canvas.Clear(SKColors.Black)
-    for Circle (point, radius), _ in ccircles do
+    for Circle (x, y, radius), _ in ccircles do
         let color = SKColors.White
         use paint = new SKPaint(Color = color, FilterQuality = SKFilterQuality.High)
-        canvas.DrawCircle(point, radius, paint)
+        canvas.DrawCircle(SKPoint(float32 x, float32 y), float32 radius, paint)
     use image = surface.Snapshot()
     use bitmap = SKBitmap.FromImage(image)
     grayscalePixels bitmap
@@ -77,9 +77,9 @@ let main _ =
         |> JsonConvert.DeserializeObject<Input array>
         |> Array.map (fun i ->
             let color = rndColor ()
-            let x = float32 i.x * 8.f
-            let y = float32 i.y * 8.f
-            Circle(SKPoint(x, y), radius), color)
+            let x = int i.x * 8
+            let y = int i.y * 8
+            Circle(x, y, radius), color)
 
     use bitmap = SKBitmap.Decode("./burgstall.jpg")
 
@@ -93,7 +93,8 @@ let main _ =
     printfn "Get recolored pixels"
     let points =
         ccircles
-        |> Array.Parallel.map (fun (Circle (Point (x, y), _), color) -> (int x, int y), color)
+        |> Array.Parallel.map (fun (Circle (x, y, _), color) ->
+            (int x, int y), color)
     let calcDistance point =
         points
         |> Array.minBy (fst >> distance point)
