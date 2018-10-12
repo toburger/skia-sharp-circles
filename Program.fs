@@ -6,11 +6,15 @@ open Argu
 type Arguments =
     | Radius of int
     | Scale of int
+    | Input of string
+    | Output of string
     interface IArgParserTemplate with
         member self.Usage =
             match self with
             | Radius _ -> "The radius used for all circles."
             | Scale _ -> "Scale factor for x and y coordinates."
+            | Input _ -> "The input JSON file."
+            | Output _ -> "The generated PNG image."
 
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
@@ -118,10 +122,38 @@ let main args =
         result.TryGetResult <@ Scale @>
         |> Option.defaultValue 8
 
+    let checkFileEnding ext (path: string) =
+        if IO.Path.GetExtension(path) <> ext then
+            failwithf
+                "Invalid file extension. Expeced a %s file."
+                (ext.[1..].ToUpper())
+        else
+            path
+
+    let checkExists path =
+        if not (IO.File.Exists(path)) then
+            failwithf "File not found: %s" path
+        else
+            path
+
+    let input =
+        result.TryPostProcessResult(
+            <@ Input @>,
+            checkFileEnding ".json" >> checkExists
+        )
+        |> Option.defaultValue "./circles.json"
+
+    let output =
+        result.TryPostProcessResult(
+            <@ Output @>,
+            checkFileEnding ".png"
+        )
+        |> Option.defaultValue "./circles.json"
+
     /// Array of circles with a random color.
     /// Imports the circles from a JSON file.
     let ccircles =
-        IO.File.ReadAllText("./circles.json")
+        IO.File.ReadAllText(input)
         |> Newtonsoft.Json.JsonConvert.DeserializeObject<Input array>
         |> Array.map (fun i ->
             let color = rndColor ()
@@ -156,7 +188,7 @@ let main args =
     /// Write the new bitmap to HD.
     use image = SKImage.FromBitmap(original)
     use data = image.Encode(SKEncodedImageFormat.Png, 100)
-    let path = IO.Path.GetFullPath("./circles.png")
+    let path = IO.Path.GetFullPath(output)
     use stream = IO.File.OpenWrite(path)
     data.SaveTo(stream)
     printfn "File written to: %s" path
