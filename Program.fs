@@ -1,12 +1,16 @@
 ﻿open System
 open System.Threading.Tasks
 open SkiaSharp
+open Argu
 
-/// The radius used for all circles
-let radius = 80
-
-/// Scale factor for all circles
-let scale = 8
+type Arguments =
+    | Radius of int
+    | Scale of int
+    interface IArgParserTemplate with
+        member self.Usage =
+            match self with
+            | Radius _ -> "The radius used for all circles."
+            | Scale _ -> "Scale factor for x and y coordinates."
 
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
@@ -70,7 +74,7 @@ let recolorPixels
     |> ignore
 
 /// Creates a grayscale color map.
-let getColorMap (width, height) ccircles: SKBitmap =
+let getColorMap (width, height) radius ccircles: SKBitmap =
     let info = SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
     let canvas = surface.Canvas
@@ -92,7 +96,28 @@ let getColorMap (width, height) ccircles: SKBitmap =
     SKBitmap.FromImage(image)
 
 [<EntryPoint>]
-let main _ =
+let main args =
+    let checkStructure =
+#if DEBUG
+        true
+#else
+        false
+#endif
+    let parser =
+        ArgumentParser.Create(
+            errorHandler = ProcessExiter(),
+            checkStructure = checkStructure
+        )
+    let result = parser.ParseCommandLine(args)
+
+    let radius =
+        result.TryGetResult <@ Radius @>
+        |> Option.defaultValue 80
+
+    let scale =
+        result.TryGetResult <@ Scale @>
+        |> Option.defaultValue 8
+
     /// Array of circles with a random color.
     /// Imports the circles from a JSON file.
     let ccircles =
@@ -110,6 +135,7 @@ let main _ =
     use overlay =
         getColorMap
             (original.Width, original.Height)
+            radius
             ccircles
 
     printfn "Set recolored pixels"
