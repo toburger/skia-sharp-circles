@@ -67,7 +67,7 @@ let recolorPixels
 let getColorMap (width, height) radius ccircles: SKBitmap =
     let info = SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
-    let canvas = surface.Canvas
+    use canvas = surface.Canvas
     canvas.Clear(SKColors.Black)
     for (x, y), _ in ccircles do
         let color = SKColors.White
