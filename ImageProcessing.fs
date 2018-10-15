@@ -68,9 +68,9 @@ let getColorMap (width, height) radius ccircles: SKBitmap =
     let info = SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
     use canvas = surface.Canvas
-    canvas.Clear(SKColors.Black)
+    canvas.Clear(SKColors.Transparent)
     for (x, y), _ in ccircles do
-        let color = SKColors.White
+        let color = SKColors.Black
         use paint =
             new SKPaint(
                 IsAntialias = true,
@@ -84,3 +84,55 @@ let getColorMap (width, height) radius ccircles: SKBitmap =
         )
     use image = surface.Snapshot()
     SKBitmap.FromImage(image)
+
+let getVoronoiBitmap (width: int, height: int) ccircles =
+    let bitmap = new SKBitmap(width, height)
+
+    let cells = ccircles |> Array.length
+    let px = ccircles |> Array.map (fst >> fst)
+    let py = ccircles |> Array.map (fst >> snd)
+    let color = ccircles |> Array.map snd
+
+    let distance (x1, x2, y1, y2) =
+        Math.Sqrt(float ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)))
+
+    Parallel.For(0, (width * height), (fun i ->
+        let x = i / height
+        let y = i % height
+        let mutable n = 0
+        for i = 0 to cells-1 do
+            if distance (px.[i], x, py.[i], y) < distance (px.[n], x, py.[n], y) then
+                n <- i
+        let c = color.[n]
+        bitmap.SetPixel(x, y, c)))
+    |> ignore
+
+    bitmap
+
+let blendOriginalWithVoronoiAndMask
+        alpha
+        (original: SKBitmap)
+        (voronoi: SKBitmap)
+        (overlay: SKBitmap) =
+    let bitmap = new SKBitmap(original.Width, original.Height)
+
+    use canvas = new SKCanvas(bitmap)
+    canvas.Clear()
+    do
+        canvas.DrawBitmap(voronoi, 0.f, 0.f)
+    do
+        use paint = new SKPaint()
+        paint.BlendMode <- SKBlendMode.DstIn
+        use colorFilter =
+            SKColorFilter.CreateBlendMode(
+                SKColors.White.WithAlpha(alpha),
+                SKBlendMode.DstIn
+            )
+        paint.ColorFilter <- colorFilter
+        canvas.DrawBitmap(overlay, 0.f, 0.f, paint)
+    do
+        use paint = new SKPaint()
+        paint.BlendMode <- SKBlendMode.DstOver
+        canvas.DrawBitmap(original, 0.f, 0.f, paint)
+
+    bitmap

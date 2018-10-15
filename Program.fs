@@ -2,6 +2,8 @@
 open SkiaSharp
 open Argu
 open ImageProcessing
+open System.Runtime.InteropServices
+open System.Threading.Tasks
 
 type Arguments =
     | Radius of int
@@ -98,31 +100,26 @@ let main args =
 
     use original = SKBitmap.Decode(originalImage)
 
-    printfn "Get overlay pixels"
-    use overlay =
+    use mask =
         getColorMap
             (original.Width, original.Height)
             radius
             ccircles
 
-    printfn "Set recolored pixels"
-    /// Convert array of circles and colors to an array
-    /// of points and colors for convenience.
-    /// Function used to find the closest point and use its color.
-    let getClosestColor point =
-        ccircles
-        |> Array.minBy (fst >> distance point)
-        |> snd
+    use voronoi =
+        getVoronoiBitmap
+            (original.Width, original.Height)
+            ccircles
 
-    /// Rewrite pixels of the original bitmap.
-    recolorPixels
-        getClosestColor
-        alpha
-        overlay
-        original
+    use bitmap =
+        blendOriginalWithVoronoiAndMask
+            alpha
+            original
+            voronoi
+            mask
 
     /// Write the new bitmap to HD.
-    use image = SKImage.FromBitmap(original)
+    use image = SKImage.FromBitmap(bitmap)
     use data = image.Encode(SKEncodedImageFormat.Png, 100)
     let path = IO.Path.GetFullPath(output)
     use stream = IO.File.OpenWrite(path)
