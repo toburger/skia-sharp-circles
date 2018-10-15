@@ -98,28 +98,53 @@ let main args =
 
     use original = SKBitmap.Decode(originalImage)
 
-    printfn "Get overlay pixels"
+    let points =
+        ccircles
+        |> Array.map fst
+        |> Array.map (fun (x, y) ->
+            VoronoiLib.Structures.FortuneSite(float x, float y))
+        |> ResizeArray
+
+    let edges =
+        VoronoiLib.FortunesAlgorithm.Run(
+            points,
+            0.,
+            0.,
+            float original.Width,
+            float original.Height
+        )
+
+    let point (vp: VoronoiLib.Structures.VPoint) =
+        SKPoint(float32 vp.X, float32 vp.Y)
+
+    use canvas = new SKCanvas(original)
+    for edge in edges do
+        let color = rndColor ()
+        let points =
+            [| point edge.Start
+               point edge.End |]
+        use paint =
+            new SKPaint(
+                Color = color,
+                Style = SKPaintStyle.StrokeAndFill,
+                StrokeWidth = 2.f,
+                IsAntialias = true
+            )
+        canvas.DrawPoints(SKPointMode.Polygon, points, paint)
+
     use overlay =
         getColorMap
             (original.Width, original.Height)
             radius
             ccircles
 
-    printfn "Set recolored pixels"
-    /// Convert array of circles and colors to an array
-    /// of points and colors for convenience.
-    /// Function used to find the closest point and use its color.
-    let getClosestColor point =
-        ccircles
-        |> Array.minBy (fst >> distance point)
-        |> snd
-
-    /// Rewrite pixels of the original bitmap.
-    recolorPixels
-        getClosestColor
-        alpha
-        overlay
-        original
+    do
+        use paint = new SKPaint()
+        paint.ColorFilter <-
+            SKColorFilter.CreateBlendMode(
+                SKColors.White.WithAlpha(alpha),
+                SKBlendMode.DstIn)
+        canvas.DrawBitmap(overlay, 0.f, 0.f, paint)
 
     /// Write the new bitmap to HD.
     use image = SKImage.FromBitmap(original)

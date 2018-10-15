@@ -22,4 +22,8 @@
     <PackageReference Include="SkiaSharp" Version="1.60.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VoronoiLib\VoronoiLib\VoronoiLib.csproj" />
+  </ItemGroup>
+
 </Project>
