@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VoronoiLib\VoronoiLib\VoronoiLib.csproj" />
+    <ProjectReference Include=".\VoronoiLib\VoronoiLib\VoronoiLib.csproj" />
   </ItemGroup>
 
 </Project>
