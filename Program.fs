@@ -12,6 +12,7 @@ type Arguments =
     | OriginalImage of string
     | Input of string
     | Output of string
+    | Measure
     interface IArgParserTemplate with
         member self.Usage =
             match self with
@@ -21,6 +22,7 @@ type Arguments =
             | OriginalImage _ -> "The original image to overlay."
             | Input _ -> "The input JSON file."
             | Output _ -> "The generated PNG image."
+            | Measure -> "Measures the time of the single steps."
 
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
@@ -42,6 +44,17 @@ let checkExists path =
 let readJson input =
     IO.File.ReadAllText(input)
     |> Newtonsoft.Json.JsonConvert.DeserializeObject<Input array>
+
+let measure caption f =
+    let sw = Diagnostics.Stopwatch.StartNew()
+    let result = f ()
+    do
+        Console.ForegroundColor <- ConsoleColor.Yellow
+        printfn "%s: %ims"
+            caption
+            sw.ElapsedMilliseconds
+        Console.ResetColor()
+    result
 
 [<EntryPoint>]
 let main args =
@@ -88,42 +101,58 @@ let main args =
         )
         |> Option.defaultValue "./circles.png"
 
-    /// Array of circles with a random color.
-    /// Imports the circles from a JSON file.
-    let ccircles =
-        readJson input
-        |> Array.map (fun i ->
-            let color = rndColor ()
-            let x = int i.x * scale
-            let y = int i.y * scale
-            (x, y), color)
+    let withMeasure =
+        result.Contains <@ Measure @>
 
-    use original = SKBitmap.Decode(originalImage)
+    let measure caption f =
+        if withMeasure then
+            measure caption f
+        else
+            f ()
 
-    use mask =
-        getColorMap
-            (original.Width, original.Height)
-            radius
-            ccircles
+    measure "TOTAL" <| fun () ->
+        /// Array of circles with a random color.
+        /// Imports the circles from a JSON file.
+        let ccircles =
+            readJson input
+            |> Array.map (fun i ->
+                let color = rndColor ()
+                let x = int i.x * scale
+                let y = int i.y * scale
+                (x, y), color)
 
-    use voronoi =
-        getVoronoiBitmap
-            (original.Width, original.Height)
-            ccircles
+        use original =
+            measure "Read original image" <| fun () ->
+            SKBitmap.Decode(originalImage)
 
-    use bitmap =
-        blendOriginalWithVoronoiAndMask
-            alpha
-            original
-            voronoi
-            mask
+        use mask =
+            measure "Draw mask" <| fun () ->
+            getColorMap
+                (original.Width, original.Height)
+                radius
+                ccircles
 
-    /// Write the new bitmap to HD.
-    use image = SKImage.FromBitmap(bitmap)
-    use data = image.Encode(SKEncodedImageFormat.Png, 100)
-    let path = IO.Path.GetFullPath(output)
-    use stream = IO.File.OpenWrite(path)
-    data.SaveTo(stream)
-    printfn "File written to: %s" path
+        use voronoi =
+            measure "Draw voronoi" <| fun () ->
+            getVoronoiBitmap
+                (original.Width, original.Height)
+                ccircles
+
+        use bitmap =
+            measure "Combine images" <| fun () ->
+            blendOriginalWithVoronoiAndMask
+                alpha
+                original
+                voronoi
+                mask
+
+        measure "Write to file" <| fun () ->
+            /// Write the new bitmap to HD.
+            use image = SKImage.FromBitmap(bitmap)
+            use data = image.Encode(SKEncodedImageFormat.Png, 100)
+            let path = IO.Path.GetFullPath(output)
+            use stream = IO.File.OpenWrite(path)
+            data.SaveTo(stream)
+            printfn "File written to: %s" path
 
     0
