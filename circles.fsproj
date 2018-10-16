@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\voronoi\voronoi.csproj" />
+    <ProjectReference Include=".\voronoi\voronoi.csproj" />
   </ItemGroup>
 
 </Project>
