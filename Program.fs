@@ -88,66 +88,41 @@ let main args =
 
     /// Array of circles with a random color.
     /// Imports the circles from a JSON file.
-    let ccircles =
+    let points =
         readJson input
         |> Array.map (fun i ->
-            let color = rndColor ()
-            let x = int i.x * scale
-            let y = int i.y * scale
-            (x, y), color)
+            let x = float i.x * float scale
+            let y = float i.y * float scale
+            (x, y))
+
+    let colors =
+        points
+        |> Array.map (fun p -> p, rndColor ())
+        |> Map.ofArray
 
     use original = SKBitmap.Decode(originalImage)
 
-    let points =
-        ccircles
-        |> Array.map fst
-        |> Array.map (fun (x, y) ->
-            VoronoiLib.Structures.FortuneSite(float x, float y))
-        |> ResizeArray
+    use voronoi =
+        drawVoronoi
+            (original.Width, original.Height)
+            colors
+            points
 
-    let edges =
-        VoronoiLib.FortunesAlgorithm.Run(
-            points,
-            0.,
-            0.,
-            float original.Width,
-            float original.Height
-        )
-
-    let point (vp: VoronoiLib.Structures.VPoint) =
-        SKPoint(float32 vp.X, float32 vp.Y)
-
-    use canvas = new SKCanvas(original)
-    for edge in edges do
-        let color = rndColor ()
-        let points =
-            [| point edge.Start
-               point edge.End |]
-        use paint =
-            new SKPaint(
-                Color = color,
-                Style = SKPaintStyle.StrokeAndFill,
-                StrokeWidth = 2.f,
-                IsAntialias = true
-            )
-        canvas.DrawPoints(SKPointMode.Polygon, points, paint)
-
-    use overlay =
-        getColorMap
+    use mask =
+        drawMask
             (original.Width, original.Height)
             radius
-            ccircles
+            points
 
-    do
-        use paint = new SKPaint()
-        paint.ColorFilter <-
-            SKColorFilter.CreateBlendMode(
-                SKColors.White.WithAlpha(alpha),
-                SKBlendMode.DstIn)
-        canvas.DrawBitmap(overlay, 0.f, 0.f, paint)
+    use bitmap =
+        drawOriginalWithBlendedVoronoiAndMask
+            alpha
+            original
+            voronoi
+            mask
 
     /// Write the new bitmap to HD.
-    use image = SKImage.FromBitmap(original)
+    use image = SKImage.FromBitmap(bitmap)
     use data = image.Encode(SKEncodedImageFormat.Png, 100)
     let path = IO.Path.GetFullPath(output)
     use stream = IO.File.OpenWrite(path)

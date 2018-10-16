@@ -64,13 +64,13 @@ let recolorPixels
     |> ignore
 
 /// Creates a grayscale color map.
-let getColorMap (width, height) radius ccircles: SKBitmap =
+let drawMask (width, height) radius points: SKBitmap =
     let info = SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
     use canvas = surface.Canvas
-    canvas.Clear(SKColors.Black)
-    for (x, y), _ in ccircles do
-        let color = SKColors.White
+    canvas.Clear(SKColors.Transparent)
+    for (x: float, y: float) in points do
+        let color = SKColors.Black
         use paint =
             new SKPaint(
                 IsAntialias = true,
@@ -82,5 +82,82 @@ let getColorMap (width, height) radius ccircles: SKBitmap =
             float32 radius,
             paint
         )
+    use image = surface.Snapshot()
+    SKBitmap.FromImage(image)
+
+let drawVoronoi (width, height) (colors: Map<float * float, SKColor>) points =
+    let info = new SKImageInfo(width, height)
+    use surface = SKSurface.Create(info)
+    use canvas = surface.Canvas
+
+    let points =
+        points
+        |> Array.map (fun (x, y) ->
+            VoronoiLib.Structures.FortuneSite(x, y))
+        |> ResizeArray
+
+    let edges =
+        VoronoiLib.FortunesAlgorithm.Run(
+            points,
+            0.,
+            0.,
+            float width,
+            float height
+        )
+
+    let point (vp: VoronoiLib.Structures.VPoint) =
+        SKPoint(float32 vp.X, float32 vp.Y)
+
+    for edge in edges do
+        let drawSite (site: VoronoiLib.Structures.FortuneSite) =
+            let x, y = site.X, site.Y
+            let color = colors.[(x, y)]
+            let path = new SKPath()
+            path.MoveTo(float32 x, float32 y)
+            path.LineTo(point edge.Start)
+            path.LineTo(point edge.End)
+            path.Close()
+            use paint =
+                new SKPaint(
+                    Color = color,
+                    Style = SKPaintStyle.Fill,
+                    StrokeWidth = 0.f,
+                    IsAntialias = false
+                )
+            canvas.DrawPath(path, paint)
+        drawSite edge.Left
+        drawSite edge.Right
+
+    use image = surface.Snapshot()
+    SKBitmap.FromImage(image)
+
+let drawOriginalWithBlendedVoronoiAndMask
+        alpha
+        (original: SKBitmap)
+        (voronoi: SKBitmap)
+        (mask: SKBitmap) =
+
+    let info = SKImageInfo(original.Width, original.Height)
+    use surface = SKSurface.Create(info)
+    use canvas = surface.Canvas
+
+    canvas.Clear()
+    do
+        canvas.DrawBitmap(voronoi, 0.f, 0.f)
+    do
+        use paint = new SKPaint()
+        paint.BlendMode <- SKBlendMode.DstIn
+        use colorFilter =
+            SKColorFilter.CreateBlendMode(
+                SKColors.White.WithAlpha(alpha),
+                SKBlendMode.DstIn
+            )
+        paint.ColorFilter <- colorFilter
+        canvas.DrawBitmap(mask, 0.f, 0.f, paint)
+    do
+        use paint = new SKPaint()
+        paint.BlendMode <- SKBlendMode.DstOver
+        canvas.DrawBitmap(original, 0.f, 0.f, paint)
+
     use image = surface.Snapshot()
     SKBitmap.FromImage(image)
