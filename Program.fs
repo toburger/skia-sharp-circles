@@ -95,9 +95,9 @@ let main args =
     let output =
         result.TryPostProcessResult(
             <@ Output @>,
-            checkFileEnding ".png"
+            checkFileEnding ".jpeg"
         )
-        |> Option.defaultValue "./circles.png"
+        |> Option.defaultValue "./circles.jpeg"
 
     let withMeasure =
         result.Contains <@ Measure @>
@@ -151,9 +151,8 @@ let main args =
                 mask
 
         measure "Write to file" <| fun () ->
-            /// Write the new bitmap to HD.
             use image = SKImage.FromBitmap(bitmap)
-            use data = image.Encode(SKEncodedImageFormat.Png, 100)
+            use data = image.Encode(SKEncodedImageFormat.Jpeg, 100)
             let path = IO.Path.GetFullPath(output)
             use stream = IO.File.OpenWrite(path)
             data.SaveTo(stream)
