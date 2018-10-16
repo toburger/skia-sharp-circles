@@ -10,6 +10,7 @@ type Arguments =
     | OriginalImage of string
     | Input of string
     | Output of string
+    | Measure
     interface IArgParserTemplate with
         member self.Usage =
             match self with
@@ -19,6 +20,7 @@ type Arguments =
             | OriginalImage _ -> "The original image to overlay."
             | Input _ -> "The input JSON file."
             | Output _ -> "The generated PNG image."
+            | Measure -> "Measures the time of the single steps."
 
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
@@ -40,6 +42,17 @@ let checkExists path =
 let readJson input =
     IO.File.ReadAllText(input)
     |> Newtonsoft.Json.JsonConvert.DeserializeObject<Input array>
+
+let measure caption f =
+    let sw = Diagnostics.Stopwatch.StartNew()
+    let result = f ()
+    do
+        Console.ForegroundColor <- ConsoleColor.Yellow
+        printfn "%s: %ims"
+            caption
+            sw.ElapsedMilliseconds
+        Console.ResetColor()
+    result
 
 [<EntryPoint>]
 let main args =
@@ -86,47 +99,64 @@ let main args =
         )
         |> Option.defaultValue "./circles.png"
 
-    /// Array of circles with a random color.
-    /// Imports the circles from a JSON file.
-    let points =
-        readJson input
-        |> Array.map (fun i ->
-            let x = float i.x * float scale
-            let y = float i.y * float scale
-            (x, y))
+    let withMeasure =
+        result.Contains <@ Measure @>
 
-    let colors =
-        points
-        |> Array.map (fun p -> p, rndColor ())
-        |> Map.ofArray
+    let measure caption f =
+        if withMeasure then
+            measure caption f
+        else
+            f ()
 
-    use original = SKBitmap.Decode(originalImage)
+    measure "TOTAL" <| fun () ->
+        /// Array of circles with a random color.
+        /// Imports the circles from a JSON file.
+        let points =
+            measure "Read circles from JSON" <| fun () ->
+            readJson input
+            |> Array.map (fun i ->
+                let x = float i.x * float scale
+                let y = float i.y * float scale
+                (x, y))
 
-    use voronoi =
-        drawVoronoi
-            (original.Width, original.Height)
-            colors
+        let colors =
             points
+            |> Array.map (fun p -> p, rndColor ())
+            |> Map.ofArray
 
-    use mask =
-        drawMask
-            (original.Width, original.Height)
-            radius
-            points
+        use original =
+            measure "Read original image" <| fun () ->
+            SKBitmap.Decode(originalImage)
 
-    use bitmap =
-        drawOriginalWithBlendedVoronoiAndMask
-            alpha
-            original
-            voronoi
-            mask
+        use voronoi =
+            measure "Drawing voronoi" <| fun () ->
+            drawVoronoi
+                (original.Width, original.Height)
+                colors
+                points
 
-    /// Write the new bitmap to HD.
-    use image = SKImage.FromBitmap(bitmap)
-    use data = image.Encode(SKEncodedImageFormat.Png, 100)
-    let path = IO.Path.GetFullPath(output)
-    use stream = IO.File.OpenWrite(path)
-    data.SaveTo(stream)
-    printfn "File written to: %s" path
+        use mask =
+            measure "Drawing mask" <| fun () ->
+            drawMask
+                (original.Width, original.Height)
+                radius
+                points
+
+        use bitmap =
+            measure "Composing image" <| fun () ->
+            drawOriginalWithBlendedVoronoiAndMask
+                alpha
+                original
+                voronoi
+                mask
+
+        measure "Write to file" <| fun () ->
+            /// Write the new bitmap to HD.
+            use image = SKImage.FromBitmap(bitmap)
+            use data = image.Encode(SKEncodedImageFormat.Png, 100)
+            let path = IO.Path.GetFullPath(output)
+            use stream = IO.File.OpenWrite(path)
+            data.SaveTo(stream)
+            printfn "File written to: %s" path
 
     0
