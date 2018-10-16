@@ -113,7 +113,8 @@ let main args =
     measure "TOTAL" <| fun () ->
         /// Array of circles with a random color.
         /// Imports the circles from a JSON file.
-        let ccircles =
+        let points =
+            measure "Read points from JSON" <| fun () ->
             readJson input
             |> Array.map (fun i ->
                 let color = rndColor ()
@@ -130,13 +131,13 @@ let main args =
             getColorMap
                 (original.Width, original.Height)
                 radius
-                ccircles
+                points
 
         use voronoi =
             measure "Draw voronoi" <| fun () ->
             getVoronoiBitmap
                 (original.Width, original.Height)
-                ccircles
+                points
 
         use bitmap =
             measure "Combine images" <| fun () ->
