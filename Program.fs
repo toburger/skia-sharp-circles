@@ -18,7 +18,7 @@ type Arguments =
             | Alpha _ -> "The alfa factor to apply to the overlay circles."
             | OriginalImage _ -> "The original image to overlay."
             | Input _ -> "The input JSON file."
-            | Output _ -> "The generated PNG image."
+            | Output _ -> "The generated JPEG image."
 
 /// Used to read input from JSON.
 type Input = { id: string; x: string; y: string }
@@ -82,9 +82,9 @@ let main args =
     let output =
         result.TryPostProcessResult(
             <@ Output @>,
-            checkFileEnding ".png"
+            checkFileEnding ".jpeg"
         )
-        |> Option.defaultValue "./circles.png"
+        |> Option.defaultValue "./circles.jpeg"
 
     /// Array of circles with a random color.
     /// Imports the circles from a JSON file.
@@ -123,7 +123,7 @@ let main args =
 
     /// Write the new bitmap to HD.
     use image = SKImage.FromBitmap(bitmap)
-    use data = image.Encode(SKEncodedImageFormat.Png, 100)
+    use data = image.Encode(SKEncodedImageFormat.Jpeg, 100)
     let path = IO.Path.GetFullPath(output)
     use stream = IO.File.OpenWrite(path)
     data.SaveTo(stream)
