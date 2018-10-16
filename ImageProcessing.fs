@@ -3,6 +3,7 @@
 open System
 open System.Threading.Tasks
 open SkiaSharp
+open BSimulator.Utils.Voronoi
 
 /// Creates a random 'light' color.
 let rndColor =
@@ -85,6 +86,21 @@ let drawMask (width, height) radius points: SKBitmap =
     use image = surface.Snapshot()
     SKBitmap.FromImage(image)
 
+let drawSite (canvas: SKCanvas) color (x, y) start end' =
+    let path = new SKPath()
+    path.MoveTo(float32 x, float32 y)
+    path.LineTo(float32 (fst start), float32 (snd start))
+    path.LineTo(float32 (fst end'), float32 (snd end'))
+    path.Close()
+    use paint =
+        new SKPaint(
+            Color = color,
+            Style = SKPaintStyle.Fill,
+            StrokeWidth = 0.f,
+            IsAntialias = false
+        )
+    canvas.DrawPath(path, paint)
+
 let drawVoronoi (width, height) (colors: Map<float * float, SKColor>) points =
     let info = new SKImageInfo(width, height)
     use surface = SKSurface.Create(info)
@@ -92,41 +108,21 @@ let drawVoronoi (width, height) (colors: Map<float * float, SKColor>) points =
 
     let points =
         points
-        |> Array.map (fun (x, y) ->
-            VoronoiLib.Structures.FortuneSite(x, y))
+        |> Array.map (fun (x, y) -> Vector(x, y))
         |> ResizeArray
 
-    let edges =
-        VoronoiLib.FortunesAlgorithm.Run(
-            points,
-            0.,
-            0.,
-            float width,
-            float height
-        )
+    let graph = Fortune.ComputeVoronoiGraph(points)
 
-    let point (vp: VoronoiLib.Structures.VPoint) =
-        SKPoint(float32 vp.X, float32 vp.Y)
+    let toXY (v: Vector) =
+        v.[0], v.[1]
 
-    for edge in edges do
-        let drawSite (site: VoronoiLib.Structures.FortuneSite) =
-            let x, y = site.X, site.Y
-            let color = colors.[(x, y)]
-            let path = new SKPath()
-            path.MoveTo(float32 x, float32 y)
-            path.LineTo(point edge.Start)
-            path.LineTo(point edge.End)
-            path.Close()
-            use paint =
-                new SKPaint(
-                    Color = color,
-                    Style = SKPaintStyle.Fill,
-                    StrokeWidth = 0.f,
-                    IsAntialias = false
-                )
-            canvas.DrawPath(path, paint)
-        drawSite edge.Left
-        drawSite edge.Right
+    for e in graph.Edges do
+        let left = toXY e.LeftData
+        let right = toXY e.RightData
+        let a = toXY e.VVertexA
+        let b = toXY e.VVertexB
+        drawSite canvas colors.[left] left a b
+        drawSite canvas colors.[right] right a b
 
     use image = surface.Snapshot()
     SKBitmap.FromImage(image)
