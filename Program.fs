@@ -112,7 +112,7 @@ let main args =
         /// Array of circles with a random color.
         /// Imports the circles from a JSON file.
         let points =
-            measure "Read circles from JSON" <| fun () ->
+            measure "Read points from JSON" <| fun () ->
             readJson input
             |> Array.map (fun i ->
                 let x = float i.x * float scale
@@ -129,21 +129,21 @@ let main args =
             SKBitmap.Decode(originalImage)
 
         use voronoi =
-            measure "Drawing voronoi" <| fun () ->
+            measure "Draw voronoi" <| fun () ->
             drawVoronoi
                 (original.Width, original.Height)
                 colors
                 points
 
         use mask =
-            measure "Drawing mask" <| fun () ->
+            measure "Draw mask" <| fun () ->
             drawMask
                 (original.Width, original.Height)
                 radius
                 points
 
         use bitmap =
-            measure "Composing image" <| fun () ->
+            measure "Combine images" <| fun () ->
             drawOriginalWithBlendedVoronoiAndMask
                 alpha
                 original
